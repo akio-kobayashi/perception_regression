@@ -33,8 +33,8 @@ class HubertDataset(torch.utils.data.Dataset):
         row = self.df.iloc[idx]
         # torch.save で { 'hubert_feats': Tensor[T, D] } の形式で保存している前提
         data = torch.load(row['hubert'], map_location='cpu')
-        hubert = data['hubert_feats']  # shape=(T, hubert_dim)
-
+        #hubert = data['hubert_feats']  # shape=(T, hubert_dim)
+        hubert = data['hubert']
         rank = self.score_to_rank(row['intelligibility'])
         return hubert, rank
 
