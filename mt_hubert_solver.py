@@ -1,0 +1,91 @@
+import os
+import torch
+import pytorch_lightning as pl
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
+import corn_loss
+from mt_hubert_model import MtHubertCornModel
+
+class LitMtHubert(pl.LightningModule):
+    """
+    PyTorch Lightning solver for multi-task HuBERT-based ordinal regression.
+    """
+    def __init__(self, config: dict) -> None:
+        super().__init__()
+        self.config = config
+        model_cfg = config['model'].copy()
+        model_cfg.pop('class_name', None) # Not needed for now
+        self.model = MtHubertCornModel(**model_cfg)
+        self.save_hyperparameters()
+
+        # Metrics for intelligibility
+        self.num_correct_int = 0
+        self.num_total_int = 0
+        # Metrics for naturalness
+        self.num_correct_nat = 0
+        self.num_total_nat = 0
+
+    def forward(self, hubert_feats: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+        return self.model(hubert_feats)
+
+    def training_step(self, batch, batch_idx: int) -> torch.Tensor:
+        huberts, labels_int, ranks_int, labels_nat, ranks_nat, lengths = batch
+        
+        logits_int, logits_nat = self.forward(huberts)
+        
+        loss_int = corn_loss.corn_loss(logits_int, labels_int)
+        loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        loss = loss_int + loss_nat
+        
+        self.log('train_loss', loss, prog_bar=True)
+        self.log('train_loss_int', loss_int)
+        self.log('train_loss_nat', loss_nat)
+        
+        return loss
+
+    def validation_step(self, batch, batch_idx: int) -> None:
+        huberts, labels_int, ranks_int, labels_nat, ranks_nat, lengths = batch
+        
+        logits_int, logits_nat = self.forward(huberts)
+        
+        loss_int = corn_loss.corn_loss(logits_int, labels_int)
+        loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        loss = loss_int + loss_nat
+        
+        self.log('val_loss', loss, prog_bar=True)
+        self.log('val_loss_int', loss_int)
+        self.log('val_loss_nat', loss_nat)
+        
+        # Accuracy for intelligibility
+        preds_int = (torch.sigmoid(logits_int) > 0.5).sum(dim=1) + 1
+        self.num_correct_int += (preds_int == ranks_int).sum().item()
+        self.num_total_int += ranks_int.size(0)
+        
+        # Accuracy for naturalness
+        preds_nat = (torch.sigmoid(logits_nat) > 0.5).sum(dim=1) + 1
+        self.num_correct_nat += (preds_nat == ranks_nat).sum().item()
+        self.num_total_nat += ranks_nat.size(0)
+
+    def on_validation_epoch_end(self) -> None:
+        acc_int = self.num_correct_int / self.num_total_int if self.num_total_int > 0 else 0.0
+        self.log('val_acc_int', acc_int, prog_bar=True)
+        
+        acc_nat = self.num_correct_nat / self.num_total_nat if self.num_total_nat > 0 else 0.0
+        self.log('val_acc_nat', acc_nat, prog_bar=True)
+        
+        # Reset metrics
+        self.num_correct_int = 0
+        self.num_total_int = 0
+        self.num_correct_nat = 0
+        self.num_total_nat = 0
+
+    def configure_optimizers(self):
+        opt_cfg = self.config['optimizer'].copy()
+        optimizer = torch.optim.Adam(self.model.parameters(), **opt_cfg)
+        
+        sched_cfg = self.config['scheduler'].copy()
+        scheduler = {
+            'scheduler': ReduceLROnPlateau(optimizer, **sched_cfg),
+            'monitor': 'val_loss'
+        }
+        return [optimizer], [scheduler]
