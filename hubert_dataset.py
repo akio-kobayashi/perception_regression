@@ -12,14 +12,15 @@ import coral_loss
 # ----------------------------------------------------------------
 class HubertDataset(torch.utils.data.Dataset):
     """
-    データフレーム(path, feature, intelligibility)から
+    データフレーム(path, feature, intelligibility/naturalness)から
     precomputed HuBERT 埋め込みを読み込む Dataset
     """
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, config: dict) -> None:
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.df = pd.read_csv(path)
         self.data_length = len(self.df)
+        self.target_column = config.get('target_column', 'intelligibility')
 
     @staticmethod
     def score_to_rank(score: float) -> int:
@@ -35,7 +36,7 @@ class HubertDataset(torch.utils.data.Dataset):
         data = torch.load(row['hubert'], map_location='cpu')
         #hubert = data['hubert_feats']  # shape=(T, hubert_dim)
         hubert = data['hubert']
-        rank = self.score_to_rank(row['intelligibility'])
+        rank = self.score_to_rank(row[self.target_column])
         return hubert, rank
 
 

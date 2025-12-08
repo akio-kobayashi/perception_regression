@@ -26,7 +26,7 @@ def main(args, config: dict):
     # 1) モデルとデータローダーを準備
     model = LitHubert(config)
 
-    train_dataset = HubertDataset(path=config['train_path'])
+    train_dataset = HubertDataset(path=config['train_path'], config=config)
     train_loader = data.DataLoader(
         train_dataset,
         batch_size=config['batch_size'],
@@ -36,7 +36,7 @@ def main(args, config: dict):
         collate_fn=data_processing
     )
 
-    valid_dataset = HubertDataset(path=config['valid_path'])
+    valid_dataset = HubertDataset(path=config['valid_path'], config=config)
     valid_loader = data.DataLoader(
         valid_dataset,
         batch_size=config['batch_size'],
@@ -83,7 +83,8 @@ def main(args, config: dict):
 
         df['predict'] = [1.0 + (r-1)*0.5 for r in preds]
         df.to_csv(config['output_csv'], index=False)
-        correct = (df['intelligibility'] == df['predict']).sum()
+        target_column = config.get('target_column', 'intelligibility')
+        correct = (df[target_column] == df['predict']).sum()
         acc = correct / len(df) if len(df) > 0 else 0
         print(f"Validation accuracy: {acc:.4f} ({correct}/{len(df)})")
     else:
