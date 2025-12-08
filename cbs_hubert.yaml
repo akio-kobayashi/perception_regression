@@ -1,0 +1,56 @@
+# Paths and data settings
+train_path: "hubert/hubert_${SPEAKER}_train.csv"
+valid_path: "hubert/hubert_${SPEAKER}_valid.csv"
+batch_size: 4
+epochs: 50
+
+# DataLoader / preprocessing
+process:
+  num_workers: 0
+
+# Trainer settings
+trainer:
+  max_epochs: 50
+  profiler: "simple"
+
+# Logger (TensorBoard)
+logger:
+  save_dir: "/media/akio/hdd1/perception_regression/cbs_task/${TARGET}/${SPEAKER}"
+  name: "lightning_logs"
+  version: 1
+
+# Checkpoint callback
+checkpoint:
+  monitor: "val_loss"
+  filename: "checkpoint_{epoch}-{step}-{val_loss:.3f}"
+  save_last: true
+  save_top_k: 1
+  mode: "min"
+  every_n_epochs: 1
+
+# Optimizer settings
+optimizer:
+  lr: 1e-4
+  betas: [0.9, 0.999]
+  weight_decay: 1e-6
+
+# LR scheduler (ReduceLROnPlateau)
+scheduler:
+  mode: "min"
+  factor: 0.99
+  patience: 5
+  verbose: true
+
+# Model hyperparameters
+model:
+  hubert_dim: 768
+  proj_dim: 256
+  num_classes: 9
+  num_cbs: 4
+  dropout_rate: 0.3
+
+# Final model export path
+output_path: "model.pt"
+
+# output CSV for validation set
+output_csv: "/media/akio/hdd1/perception_regression/cbs_task/${TARGET}/${SPEAKER}/output.csv"
