@@ -6,17 +6,11 @@ import fnmatch
 from sklearn.metrics import mean_absolute_error
 from scipy.stats import spearmanr, kendalltau
 
-def calculate_and_print_metrics(csv_file_path: str):
+def calculate_and_print_metrics(df: pd.DataFrame, root_dir: str):
     """
-    指定されたCSVファイルからintelligibilityとnaturalnessのMAE, Spearman, Kendallを計算し表示する。
+    指定されたDataFrameからintelligibilityとnaturalnessのMAE, Spearman, Kendallを計算し表示する。
     """
-    try:
-        df = pd.read_csv(csv_file_path)
-    except Exception as e:
-        print(f"エラー: ファイル '{csv_file_path}' の読み込み中に問題が発生しました: {e}")
-        return
-
-    print(f"\n--- Metrics for: {csv_file_path} ---")
+    print(f"\n--- Combined Metrics for directory: {root_dir} ---")
 
     tasks_to_evaluate = {
         'intelligibility': 'predict_int',
@@ -32,16 +26,12 @@ def calculate_and_print_metrics(csv_file_path: str):
         pred_scores = df[pred_col].dropna()
 
         common_indices = true_scores.index.intersection(pred_scores.index)
-        if len(common_indices) == 0:
-            print(f"  タスク '{task_name}': 比較可能なデータがありません。")
+        if len(common_indices) < 2:
+            print(f"  タスク '{task_name}': データ点が少なすぎるため、メトリクスを計算できません。")
             continue
         
         true_scores = true_scores.loc[common_indices]
         pred_scores = pred_scores.loc[common_indices]
-
-        if len(true_scores) < 2:
-            print(f"  タスク '{task_name}': データ点が少なすぎるため、メトリクスを計算できません。")
-            continue
 
         try:
             mae = mean_absolute_error(true_scores, pred_scores)
@@ -57,7 +47,7 @@ def calculate_and_print_metrics(csv_file_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="指定されたディレクトリから output.csv ファイルを再帰的に探し、評価指標を計算します。")
+    parser = argparse.ArgumentParser(description="指定されたディレクトリから output.csv ファイルを再帰的に探し、評価指標をまとめて計算します。")
     parser.add_argument('directory', type=str, help="output.csv ファイルを探すルートディレクトリのパス")
     args = parser.parse_args()
 
@@ -75,8 +65,19 @@ def main():
         print(f"'{root_dir}' 以下に 'output.csv' ファイルは見つかりませんでした。")
         return
 
-    for file_path in sorted(found_files):
-        calculate_and_print_metrics(file_path)
+    df_list = []
+    for file_path in found_files:
+        try:
+            df_list.append(pd.read_csv(file_path))
+        except Exception as e:
+            print(f"警告: ファイル '{file_path}' の読み込みに失敗しました: {e}")
+    
+    if not df_list:
+        print("読み込み可能なCSVファイルがありませんでした。")
+        return
+
+    combined_df = pd.concat(df_list, ignore_index=True)
+    calculate_and_print_metrics(combined_df, root_dir)
 
 if __name__ == '__main__':
     main()

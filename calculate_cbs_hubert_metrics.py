@@ -6,17 +6,11 @@ import fnmatch
 from sklearn.metrics import mean_absolute_error, accuracy_score
 from scipy.stats import spearmanr, kendalltau
 
-def calculate_and_print_metrics(csv_file_path: str):
+def calculate_and_print_metrics(df: pd.DataFrame, root_dir: str):
     """
-    指定されたCSVファイルから各タスクの評価指標を計算し表示する。
+    指定されたDataFrameから各タスクの評価指標を計算し表示する。
     """
-    try:
-        df = pd.read_csv(csv_file_path)
-    except Exception as e:
-        print(f"エラー: ファイル '{csv_file_path}' の読み込み中に問題が発生しました: {e}")
-        return
-
-    print(f"\n--- Metrics for: {csv_file_path} ---")
+    print(f"\n--- Combined Metrics for directory: {root_dir} ---")
 
     # Ordinal tasks
     ordinal_tasks = {
@@ -56,7 +50,6 @@ def calculate_and_print_metrics(csv_file_path: str):
         true_col = f'cb{i}'
         pred_col = f'predict_cb{i}'
         if true_col not in df.columns or pred_col not in df.columns:
-            # This is not an error, the file might just not be from a cbs experiment
             continue
 
         true_labels = df[true_col].dropna()
@@ -78,7 +71,7 @@ def calculate_and_print_metrics(csv_file_path: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="指定されたディレクトリから output.csv ファイルを再帰的に探し、評価指標を計算します。")
+    parser = argparse.ArgumentParser(description="指定されたディレクトリから output.csv ファイルを再帰的に探し、評価指標をまとめて計算します。")
     parser.add_argument('directory', type=str, help="output.csv ファイルを探すルートディレクトリのパス")
     args = parser.parse_args()
 
@@ -96,8 +89,19 @@ def main():
         print(f"'{root_dir}' 以下に 'output.csv' ファイルは見つかりませんでした。")
         return
 
-    for file_path in sorted(found_files):
-        calculate_and_print_metrics(file_path)
+    df_list = []
+    for file_path in found_files:
+        try:
+            df_list.append(pd.read_csv(file_path))
+        except Exception as e:
+            print(f"警告: ファイル '{file_path}' の読み込みに失敗しました: {e}")
+    
+    if not df_list:
+        print("読み込み可能なCSVファイルがありませんでした。")
+        return
+
+    combined_df = pd.concat(df_list, ignore_index=True)
+    calculate_and_print_metrics(combined_df, root_dir)
 
 if __name__ == '__main__':
     main()
