@@ -59,7 +59,7 @@ class LitMtHubert(pl.LightningModule):
     def validation_step(self, batch, batch_idx: int) -> None:
         huberts, labels_int, ranks_int, labels_nat, ranks_nat, lengths = batch
         
-        logits_int, logits_nat = self.forward(hubert_feats)
+        logits_int, logits_nat = self.forward(huberts)
         
         if isinstance(self.model, MtAttentionHubertCornModel):
             loss_int = corn_loss.corn_loss(logits_int, labels_int)
