@@ -16,7 +16,7 @@ trainer:
 
 # Logger (TensorBoard)
 logger:
-  save_dir: "/media/akio/hdd1/perception_regression/${TARGET_COLUMN}/${TARGET}/${SPEAKER}"
+  save_dir: "/media/akio/hdd1/perception_regression/${TARGET}/${TARGET_COLUMN}/${SPEAKER}"
   name: "lightning_logs"
   version: 1
 
@@ -56,4 +56,4 @@ model:
 output_path: "model.pt"
 
 # output CSV for validation set
-output_csv: "/media/akio/hdd1/perception_regression/${TARGET_COLUMN}/${TARGET}/${SPEAKER}/output.csv"
+output_csv: "/media/akio/hdd1/perception_regression/${TARGET}/${TARGET_COLUMN}/${SPEAKER}/output.csv"
