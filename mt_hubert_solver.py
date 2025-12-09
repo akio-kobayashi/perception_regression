@@ -4,7 +4,8 @@ import pytorch_lightning as pl
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import corn_loss
-from mt_hubert_model import MtHubertCornModel
+import coral_loss
+from mt_hubert_model import MtAttentionHubertCornModel, MtAttentionHubertOrdinalRegressionModel
 
 class LitMtHubert(pl.LightningModule):
     """
@@ -14,8 +15,15 @@ class LitMtHubert(pl.LightningModule):
         super().__init__()
         self.config = config
         model_cfg = config['model'].copy()
-        model_cfg.pop('class_name', None) # Not needed for now
-        self.model = MtHubertCornModel(**model_cfg)
+        class_name = model_cfg.pop('class_name', 'MtAttentionHubertCornModel')
+        
+        model_map = {
+            'MtAttentionHubertCornModel': MtAttentionHubertCornModel,
+            'MtAttentionHubertOrdinalRegressionModel': MtAttentionHubertOrdinalRegressionModel,
+        }
+        ModelClass = model_map[class_name]
+        
+        self.model = ModelClass(**model_cfg)
         self.save_hyperparameters()
 
         # Metrics for intelligibility
@@ -33,8 +41,13 @@ class LitMtHubert(pl.LightningModule):
         
         logits_int, logits_nat = self.forward(huberts)
         
-        loss_int = corn_loss.corn_loss(logits_int, labels_int)
-        loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        if isinstance(self.model, MtAttentionHubertCornModel):
+            loss_int = corn_loss.corn_loss(logits_int, labels_int)
+            loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        else:
+            loss_int = coral_loss.coral_loss(logits_int, labels_int)
+            loss_nat = coral_loss.coral_loss(logits_nat, labels_nat)
+
         loss = loss_int + loss_nat
         
         self.log('train_loss', loss, prog_bar=True)
@@ -46,23 +59,26 @@ class LitMtHubert(pl.LightningModule):
     def validation_step(self, batch, batch_idx: int) -> None:
         huberts, labels_int, ranks_int, labels_nat, ranks_nat, lengths = batch
         
-        logits_int, logits_nat = self.forward(huberts)
+        logits_int, logits_nat = self.forward(hubert_feats)
         
-        loss_int = corn_loss.corn_loss(logits_int, labels_int)
-        loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        if isinstance(self.model, MtAttentionHubertCornModel):
+            loss_int = corn_loss.corn_loss(logits_int, labels_int)
+            loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        else:
+            loss_int = coral_loss.coral_loss(logits_int, labels_int)
+            loss_nat = coral_loss.coral_loss(logits_nat, labels_nat)
+        
         loss = loss_int + loss_nat
         
         self.log('val_loss', loss, prog_bar=True)
         self.log('val_loss_int', loss_int)
         self.log('val_loss_nat', loss_nat)
         
-        # Accuracy for intelligibility
-        preds_int = (torch.sigmoid(logits_int) > 0.5).sum(dim=1) + 1
+        preds_int, preds_nat = self.model.predict(huberts)
+        
         self.num_correct_int += (preds_int == ranks_int).sum().item()
         self.num_total_int += ranks_int.size(0)
         
-        # Accuracy for naturalness
-        preds_nat = (torch.sigmoid(logits_nat) > 0.5).sum(dim=1) + 1
         self.num_correct_nat += (preds_nat == ranks_nat).sum().item()
         self.num_total_nat += ranks_nat.size(0)
 

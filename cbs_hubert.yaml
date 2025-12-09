@@ -43,8 +43,10 @@ scheduler:
 
 # Model hyperparameters
 model:
+  class_name: ${MODEL}
   hubert_dim: 768
-  proj_dim: 256
+  embed_dim: 256
+  n_heads: 4
   num_classes: 9
   num_cbs: 4
   dropout_rate: 0.3

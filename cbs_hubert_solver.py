@@ -5,7 +5,8 @@ import pytorch_lightning as pl
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 import corn_loss
-from cbs_hubert_model import CbsHubertCornModel
+import coral_loss
+from cbs_hubert_model import CbsAttentionHubertCornModel, CbsAttentionHubertOrdinalRegressionModel
 
 class LitCbsHubert(pl.LightningModule):
     """
@@ -15,16 +16,22 @@ class LitCbsHubert(pl.LightningModule):
         super().__init__()
         self.config = config
         model_cfg = config['model'].copy()
-        self.model = CbsHubertCornModel(**model_cfg)
+        class_name = model_cfg.pop('class_name', 'CbsAttentionHubertCornModel')
+        
+        model_map = {
+            'CbsAttentionHubertCornModel': CbsAttentionHubertCornModel,
+            'CbsAttentionHubertOrdinalRegressionModel': CbsAttentionHubertOrdinalRegressionModel,
+        }
+        ModelClass = model_map[class_name]
+        
+        self.model = ModelClass(**model_cfg)
         self.save_hyperparameters()
 
-        # Metrics for intelligibility
+        # Metrics
         self.num_correct_int = 0
         self.num_total_int = 0
-        # Metrics for naturalness
         self.num_correct_nat = 0
         self.num_total_nat = 0
-        # Metrics for CBs
         self.num_correct_cbs = torch.zeros(4)
         self.num_total_cbs = 0
 
@@ -36,8 +43,13 @@ class LitCbsHubert(pl.LightningModule):
         
         logits_int, logits_nat, logits_cbs = self.forward(huberts)
         
-        loss_int = corn_loss.corn_loss(logits_int, labels_int)
-        loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        if isinstance(self.model, CbsAttentionHubertCornModel):
+            loss_int = corn_loss.corn_loss(logits_int, labels_int)
+            loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        else:
+            loss_int = coral_loss.coral_loss(logits_int, labels_int)
+            loss_nat = coral_loss.coral_loss(logits_nat, labels_nat)
+            
         loss_cbs = F.binary_cross_entropy_with_logits(logits_cbs, cbs_batch)
         
         loss = loss_int + loss_nat + loss_cbs
@@ -54,8 +66,13 @@ class LitCbsHubert(pl.LightningModule):
         
         logits_int, logits_nat, logits_cbs = self.forward(huberts)
         
-        loss_int = corn_loss.corn_loss(logits_int, labels_int)
-        loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        if isinstance(self.model, CbsAttentionHubertCornModel):
+            loss_int = corn_loss.corn_loss(logits_int, labels_int)
+            loss_nat = corn_loss.corn_loss(logits_nat, labels_nat)
+        else:
+            loss_int = coral_loss.coral_loss(logits_int, labels_int)
+            loss_nat = coral_loss.coral_loss(logits_nat, labels_nat)
+
         loss_cbs = F.binary_cross_entropy_with_logits(logits_cbs, cbs_batch)
         loss = loss_int + loss_nat + loss_cbs
         
@@ -64,18 +81,14 @@ class LitCbsHubert(pl.LightningModule):
         self.log('val_loss_nat', loss_nat)
         self.log('val_loss_cbs', loss_cbs)
         
-        # Accuracy for intelligibility
-        preds_int = (torch.sigmoid(logits_int) > 0.5).sum(dim=1) + 1
+        preds_int, preds_nat, preds_cbs = self.model.predict(huberts)
+
         self.num_correct_int += (preds_int == ranks_int).sum().item()
         self.num_total_int += ranks_int.size(0)
         
-        # Accuracy for naturalness
-        preds_nat = (torch.sigmoid(logits_nat) > 0.5).sum(dim=1) + 1
         self.num_correct_nat += (preds_nat == ranks_nat).sum().item()
         self.num_total_nat += ranks_nat.size(0)
 
-        # Accuracy for CBs
-        preds_cbs = (torch.sigmoid(logits_cbs) > 0.5).float()
         self.num_correct_cbs += (preds_cbs == cbs_batch).sum(dim=0).cpu()
         self.num_total_cbs += cbs_batch.size(0)
 
@@ -86,7 +99,6 @@ class LitCbsHubert(pl.LightningModule):
         acc_nat = self.num_correct_nat / self.num_total_nat if self.num_total_nat > 0 else 0.0
         self.log('val_acc_nat', acc_nat, prog_bar=True)
         
-        # Log CB accuracies
         if self.num_total_cbs > 0:
             acc_cbs = self.num_correct_cbs / self.num_total_cbs
             for i, acc in enumerate(acc_cbs):
