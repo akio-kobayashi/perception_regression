@@ -97,6 +97,8 @@ class LitMtHubert(pl.LightningModule):
 
     def configure_optimizers(self):
         opt_cfg = self.config['optimizer'].copy()
+        print(f"Optimizer config: {opt_cfg}")
+        print(f"Type of lr: {type(opt_cfg.get('lr'))}")
         optimizer = torch.optim.Adam(self.model.parameters(), **opt_cfg)
         
         sched_cfg = self.config['scheduler'].copy()
