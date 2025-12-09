@@ -114,6 +114,8 @@ class LitCbsHubert(pl.LightningModule):
 
     def configure_optimizers(self):
         opt_cfg = self.config['optimizer'].copy()
+        opt_cfg['lr'] = float(opt_cfg['lr'])
+        opt_cfg['weight_decay'] = float(opt_cfg['weight_decay'])
         optimizer = torch.optim.Adam(self.model.parameters(), **opt_cfg)
         
         sched_cfg = self.config['scheduler'].copy()
