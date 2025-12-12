@@ -49,6 +49,7 @@ def calculate_and_print_metrics(df: pd.DataFrame, root_dir: str):
 def main():
     parser = argparse.ArgumentParser(description="指定されたディレクトリから output.csv ファイルを再帰的に探し、評価指標をまとめて計算します。")
     parser.add_argument('directory', type=str, help="output.csv ファイルを探すルートディレクトリのパス")
+    parser.add_argument('--exclude_hearing', action='store_true', help="Directories containing 'BF' or 'BM' are excluded.")
     args = parser.parse_args()
 
     root_dir = args.directory
@@ -58,6 +59,8 @@ def main():
 
     found_files = []
     for dirpath, _, filenames in os.walk(root_dir):
+        if args.exclude_hearing and ('BF' in dirpath or 'BM' in dirpath):
+            continue
         for filename in fnmatch.filter(filenames, 'output.csv'):
             found_files.append(os.path.join(dirpath, filename))
 
