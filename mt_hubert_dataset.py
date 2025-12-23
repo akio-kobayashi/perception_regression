@@ -19,6 +19,8 @@ class MtHubertDataset(torch.utils.data.Dataset):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.df = pd.read_csv(path)
+        if 'eval' in self.df.columns:
+            self.df = self.df[self.df['eval'] != 'trial']
         self.data_length = len(self.df)
 
     @staticmethod
