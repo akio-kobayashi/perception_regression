@@ -6,10 +6,6 @@ import fnmatch
 from scipy import stats
 import itertools
 
-def calculate_mae(y_true, y_pred):
-    """平均絶対誤差（MAE）を計算"""
-    return np.mean(np.abs(y_true - y_pred))
-
 def calculate_spearman(y_true, y_pred):
     """スピアマンの順位相関係数を計算"""
     return stats.spearmanr(y_true, y_pred)[0]
@@ -144,26 +140,22 @@ def main():
         y_pred1 = merged_df[f"predict_model_{i}"].values
         y_pred2 = merged_df[f"predict_model_{j}"].values
 
-        p_mae = cluster_permutation_test(calculate_mae, y_true, y_pred1, y_pred2, clusters, args.n_permutations)
         p_rho = cluster_permutation_test(calculate_spearman, y_true, y_pred1, y_pred2, clusters, args.n_permutations)
         p_tau = cluster_permutation_test(calculate_kendall, y_true, y_pred1, y_pred2, clusters, args.n_permutations)
         
         results.append({
             'comparison': f"{model1_name} vs {model2_name}",
-            'p_mae': p_mae, 'p_rho': p_rho, 'p_tau': p_tau
+            'p_rho': p_rho, 'p_tau': p_tau
         })
 
     # 多重比較補正
-    p_values_mae = [r['p_mae'] for r in results]
     p_values_rho = [r['p_rho'] for r in results]
     p_values_tau = [r['p_tau'] for r in results]
 
-    adj_p_mae = holm_bonferroni(p_values_mae)
     adj_p_rho = holm_bonferroni(p_values_rho)
     adj_p_tau = holm_bonferroni(p_values_tau)
 
     for i, r in enumerate(results):
-        r['adj_p_mae'] = adj_p_mae[i]
         r['adj_p_rho'] = adj_p_rho[i]
         r['adj_p_tau'] = adj_p_tau[i]
 
@@ -171,10 +163,10 @@ def main():
     print("\n" + "="*70)
     print(f"タスク '{args.task}' の有意差検定結果 (Holm補正済みp値)")
     print("="*70)
-    print(f"{'Comparison':<40} {'MAE p-value':<15} {'Spearman p-value':<20} {'Kendall p-value':<15}")
+    print(f"{'Comparison':<40} {'Spearman p-value':<20} {'Kendall p-value':<15}")
     print("-"*70)
     for r in results:
-        print(f"{r['comparison']:<40} {r['adj_p_mae']:<15.4f} {r['adj_p_rho']:<20.4f} {r['adj_p_tau']:<15.4f}")
+        print(f"{r['comparison']:<40} {r['adj_p_rho']:<20.4f} {r['adj_p_tau']:<15.4f}")
     print("-"*70)
 
 if __name__ == '__main__':
