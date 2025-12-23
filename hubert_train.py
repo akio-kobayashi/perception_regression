@@ -73,6 +73,8 @@ def main(args, config: dict):
         best.eval()
 
         df = pd.read_csv(config['valid_path'])
+        if 'eval' in df.columns:
+            df = df[df['eval'] != 'trial'].reset_index(drop=True)
         preds = []
         for huberts, labels, ranks, lengths in valid_loader:
             with torch.no_grad():

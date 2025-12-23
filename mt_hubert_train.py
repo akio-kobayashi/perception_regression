@@ -73,6 +73,8 @@ def main(args, config: dict):
         best.eval()
 
         df = pd.read_csv(config['valid_path'])
+        if 'eval' in df.columns:
+            df = df[df['eval'] != 'trial'].reset_index(drop=True)
         preds_int, preds_nat = [], []
         for batch in valid_loader:
             huberts, _, _, _, _, _ = batch
