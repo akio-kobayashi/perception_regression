@@ -34,7 +34,7 @@ def cluster_permutation_test(metric_func, y_true, y_pred1, y_pred2, clusters, n_
     metric2 = metric_func(y_true, y_pred2)
     observed_diff = np.abs(metric1 - metric2)
 
-    unique_clusters = clusters.unique()
+    unique_clusters = np.unique(clusters)
     n_clusters = len(unique_clusters)
     
     count = 0
