@@ -51,16 +51,15 @@ def permutation_test(metric_func, y_true, y_pred1, y_pred2, n_permutations=10000
     p_value = count / n_permutations
     return p_value
 
-def find_csv_files(root_dir, task_name, exclude_hearing):
+def find_csv_files(root_dir, exclude_hearing):
     """指定されたタスクのoutput.csvファイルをディレクトリから検索"""
     file_list = []
     for dirpath, _, filenames in os.walk(root_dir):
         # exclude_hearingがTrueの場合、健聴話者を除外
         if exclude_hearing and ('BF' in dirpath or 'BM' in dirpath):
             continue
-        if task_name in dirpath:
-            for filename in fnmatch.filter(filenames, 'output.csv'):
-                file_list.append(os.path.join(dirpath, filename))
+        for filename in fnmatch.filter(filenames, 'output.csv'):
+            file_list.append(os.path.join(dirpath, filename))
     return file_list
 
 def load_and_combine_data(file_list):
@@ -96,9 +95,9 @@ def main():
     # 各モデルのデータをロード
     model_dfs = []
     for i, directory in enumerate(args.dirs):
-        file_list = find_csv_files(directory, args.task, args.exclude_hearing)
+        file_list = find_csv_files(directory, args.exclude_hearing)
         if not file_list:
-            print(f"警告: ディレクトリ '{directory}' 内でタスク '{args.task}' の 'output.csv' が見つかりませんでした。")
+            print(f"警告: ディレクトリ '{directory}' 内で 'output.csv' が見つかりませんでした。")
             continue
         
         df = load_and_combine_data(file_list)
