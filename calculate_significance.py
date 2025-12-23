@@ -129,7 +129,7 @@ def main():
 
     merged_df = model_dfs[0]
     for i in range(1, len(model_dfs)):
-        merged_df = pd.merge(merged_df, model_dfs[i], on=['key', 'listener_id', 'speaker', args.task], how='inner')
+        merged_df = pd.merge(merged_df, model_dfs[i], on=['key', 'listener_id', 'speaker'], how='inner')
 
     y_true = merged_df[args.task].values
     clusters = merged_df['speaker'].values
